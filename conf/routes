@@ -6,3 +6,4 @@
 # Api spec
 GET     /swagger.json                             controllers.SwaggerController.getSwagger
 
+POST    /create                                   controllers.ProjectsController.projectCreate
