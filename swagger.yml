@@ -13,7 +13,52 @@ produces:
 consumes:
   - application/json
 tags:
-- name: 'Projects'
-  description: 'Projects'
-paths: {}
-definitions: {}
+- name: 'projects'
+  description: 'Perform project operations'
+paths:
+  /create:
+    post:
+      tags:
+      - 'projects'
+      summary: 'Request creation of a project'
+      description: 'Request the creation of a new project'
+      parameters:
+      - name: body
+        in: body
+        description: 'Create project request object'
+        required: true
+        schema:
+          $ref: '#/definitions/CreateProjectRequest'
+      - name: Authorization
+        in: header
+        description: 'Bearer token (from authorization request)'
+        required: true
+        type: string
+        example: 'Bearer '
+      responses:
+        201:
+          description: ok
+          schema:
+            type: object
+            required:
+            - id
+            properties:
+              id:
+                type: integer
+                format: int64
+definitions:
+  CreateProjectRequest:
+    type: object
+    required:
+    - name
+    - request_type
+    properties:
+      name:
+        type: string
+      request_type:
+        type: string
+        enum:
+        - 'create_project'
+    example:
+      name: 'my first project'
+      request_type: 'create_project'
