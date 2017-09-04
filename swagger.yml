@@ -1,0 +1,19 @@
+# API spec in YAML
+swagger: '2.0'
+info:
+  title: Projects API
+  description: |
+    Projects API specification
+  version: '0.0.1'
+# Host and schemes are injected by the service
+# will be prefixed to all paths
+basePath: /api/projects
+produces:
+  - application/json
+consumes:
+  - application/json
+tags:
+- name: 'Projects'
+  description: 'Projects'
+paths: {}
+definitions: {}
