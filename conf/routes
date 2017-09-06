@@ -7,3 +7,7 @@
 GET     /swagger.json                             controllers.SwaggerController.getSwagger
 
 POST    /                                         controllers.ProjectsController.projectCreate
+
+# Proxied routes
+GET     /                                         controllers.ExplorerProxyController.listProjects
+GET     /:identifier                              controllers.ExplorerProxyController.findProject(identifier: String)
