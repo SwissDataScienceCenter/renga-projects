@@ -21,6 +21,7 @@ package controllers
 import javax.inject.{ Inject, Singleton }
 
 import authorization.{ JWTVerifierProvider, ResourcesManagerJWTVerifierProvider }
+import ch.datascience.graph.Constants.VertexId
 import ch.datascience.graph.elements.mutation.create.CreateVertexOperation
 import ch.datascience.graph.elements.mutation.log.model.json._
 import ch.datascience.graph.elements.mutation.log.model.{ EventStatus, MutationFailed, MutationResponse, MutationSuccess }
@@ -29,14 +30,14 @@ import ch.datascience.graph.elements.new_.build.NewVertexBuilder
 import ch.datascience.graph.naming.NamespaceAndName
 import ch.datascience.graph.values.StringValue
 import ch.datascience.service.ResourceManagerClient
-import ch.datascience.service.models.projects.CreateProjectRequest
+import ch.datascience.service.models.projects.{ CreateProjectRequest, SimpleProject }
 import ch.datascience.service.models.projects.json._
 import ch.datascience.service.models.resource.json.AccessRequestFormat
 import ch.datascience.service.security.ProfileFilterAction
 import ch.datascience.service.utils.persistence.graph.{ GraphExecutionContextProvider, JanusGraphTraversalSourceProvider }
 import ch.datascience.service.utils.persistence.reader.VertexReader
 import ch.datascience.service.utils.{ ControllerWithBodyParseJson, ControllerWithGraphTraversal }
-import play.api.libs.json.{ JsObject, Json }
+import play.api.libs.json.{ JsArray, JsObject, JsString, Json }
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 
@@ -61,8 +62,10 @@ class ProjectsController @Inject() (
     val token: String = request.headers.get( "Authorization" ).getOrElse( "" )
     val rmc = new ResourceManagerClient( config )
     val name = request.body.name
+    val labels = request.body.labels
     val extra = Some( Json.toJson( Map(
-      "project" -> name
+      "project" -> JsString( name ),
+      "labels" -> JsArray( labels.toSeq.map( JsString ) )
     ) ).as[JsObject] )
 
     rmc.authorize( AccessRequestFormat, request.body.toAccessRequest( extra ), token ).flatMap { res =>
@@ -70,9 +73,11 @@ class ProjectsController @Inject() (
         if ( ag.verifyAccessToken( rmJwtVerifier.get ).extraClaims.equals( extra ) ) {
           val vertex = new NewVertexBuilder()
             .addSingleProperty( "project:project_name", StringValue( name ) )
+            .addLabels( labels )
             .addSingleProperty( "resource:owner", StringValue( request.userId ) )
             .addType( NamespaceAndName( "project:project" ) )
-          val mut = Mutation( Seq( CreateVertexOperation( vertex.result() ) ) )
+            .result()
+          val mut = Mutation( Seq( CreateVertexOperation( vertex ) ) )
           gc.postAndWait( mut ).map { ev =>
             val response = ev.status match {
               case EventStatus.Completed( res ) => res
@@ -81,17 +86,26 @@ class ProjectsController @Inject() (
 
             val mutationResponse = response.event.as[MutationResponse]
             val projectVertexId = mutationResponse match {
-              case MutationSuccess( results ) => results.head
+              case MutationSuccess( results ) => ( results.head \ "id" ).as[VertexId]
               case MutationFailed( reason )   => throw new RuntimeException( s"Project creation failed, caused by: $reason" )
             }
 
-            Created( projectVertexId )
+            val project = SimpleProject( projectVertexId, name, labels )
+            Created( Json.toJson( project ) )
           }
         }
         else Future( InternalServerError( "Resource Manager response is invalid." ) )
       }
 
       optResult.getOrElse( Future( InternalServerError( "No response from Resource Manager." ) ) )
+    }
+  }
+
+  private[this] implicit class BuilderCanAddLabels( builder: NewVertexBuilder ) {
+    def addLabels( labels: Set[String] ): NewVertexBuilder = {
+      labels.foldLeft( builder ) { ( b, label ) =>
+        b.addSetProperty( NamespaceAndName( "annotation:label" ), StringValue( label ) )
+      }
     }
   }
 
