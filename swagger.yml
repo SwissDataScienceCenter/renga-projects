@@ -85,7 +85,7 @@ paths:
 securityDefinitions:
   token_auth:
     type: oauth2
-    # FIXME replace in source authorizationUrl: '{{ PROJECTS_AUTHORIZATION_URL }}'
+    # NOTE the 'authorizationUrl' is automatically added
     flow: implicit
     scopes:
       projects:read: read projects
