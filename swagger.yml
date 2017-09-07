@@ -6,7 +6,7 @@ info:
 basePath: /api/projects
 tags:
 - description: Perform project operations
-  name: projects
+  name: Projects
 paths:
   /:
     get:
@@ -29,7 +29,7 @@ paths:
         - projects:read
       summary: List defined projects.
       tags:
-      - projects
+      - Projects
     post:
       consumes:
       - application/json
@@ -55,7 +55,7 @@ paths:
         - projects:read
       summary: Create a new project.
       tags:
-      - projects
+      - Projects
   /{project_id}:
     get:
       description: Returns a single project
@@ -81,7 +81,7 @@ paths:
         - projects:read
       summary: Find project by ID
       tags:
-      - projects
+      - Projects
 securityDefinitions:
   token_auth:
     type: oauth2
