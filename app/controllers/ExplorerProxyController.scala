@@ -100,7 +100,7 @@ class ExplorerProxyController @Inject() (
 
   private[this] def interpretVertex( vertex: PersistedVertex ): SimpleProject = {
     val name = vertex.properties( NamespaceAndName( "project:project_name" ) ).values.head.unboxAs[String]
-    val labels = vertex.properties( NamespaceAndName( "annotation:label" ) ).values.map( _.unboxAs[String] ).toSet
+    val labels = vertex.properties.get( NamespaceAndName( "annotation:label" ) ).map( _.values.map( _.unboxAs[String] ).toSet ).getOrElse( Set.empty )
     SimpleProject( vertex.id, name, labels )
   }
 
