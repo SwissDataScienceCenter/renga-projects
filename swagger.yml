@@ -2,7 +2,7 @@ swagger: '2.0'
 info:
   description: Renga Project Service.
   title: Renga Project Service
-  version: 0.0.1
+  version: 0.1.0
 basePath: /api/projects
 tags:
 - description: Perform project operations
