@@ -7,6 +7,9 @@
 GET     /swagger.json                             controllers.SwaggerController.getSwagger
 
 POST    /                                         controllers.ProjectsController.projectCreate
+POST    /:identifier/imports                      controllers.ProjectsController.importCreate(identifier: Long)
+
+#GET    /:identifier/imports/:id   TODO: should be redirected to /storage/files/:id
 
 # Proxied routes
 GET     /                                         controllers.ExplorerProxyController.listProjects
