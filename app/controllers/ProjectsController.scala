@@ -22,22 +22,23 @@ import javax.inject.{ Inject, Singleton }
 
 import authorization.{ JWTVerifierProvider, ResourcesManagerJWTVerifierProvider }
 import ch.datascience.graph.Constants.VertexId
-import ch.datascience.graph.elements.mutation.create.CreateVertexOperation
+import ch.datascience.graph.elements.mutation.create.{ CreateEdgeOperation, CreateVertexOperation }
 import ch.datascience.graph.elements.mutation.log.model.json._
 import ch.datascience.graph.elements.mutation.log.model.{ EventStatus, MutationFailed, MutationResponse, MutationSuccess }
 import ch.datascience.graph.elements.mutation.{ GraphMutationClient, Mutation }
+import ch.datascience.graph.elements.new_.NewEdge
 import ch.datascience.graph.elements.new_.build.NewVertexBuilder
 import ch.datascience.graph.naming.NamespaceAndName
 import ch.datascience.graph.values.StringValue
 import ch.datascience.service.ResourceManagerClient
-import ch.datascience.service.models.projects.{ CreateProjectRequest, SimpleProject }
+import ch.datascience.service.models.projects.{ CreateImportRequest, CreateProjectRequest, SimpleProject }
 import ch.datascience.service.models.projects.json._
 import ch.datascience.service.models.resource.json.AccessRequestFormat
 import ch.datascience.service.security.ProfileFilterAction
 import ch.datascience.service.utils.persistence.graph.{ GraphExecutionContextProvider, JanusGraphTraversalSourceProvider }
 import ch.datascience.service.utils.persistence.reader.VertexReader
 import ch.datascience.service.utils.{ ControllerWithBodyParseJson, ControllerWithGraphTraversal }
-import play.api.libs.json.{ JsArray, JsObject, JsString, Json }
+import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 
@@ -92,6 +93,40 @@ class ProjectsController @Inject() (
 
             val project = SimpleProject( projectVertexId, name, labels )
             Created( Json.toJson( project ) )
+          }
+        }
+        else Future( InternalServerError( "Resource Manager response is invalid." ) )
+      }
+
+      optResult.getOrElse( Future( InternalServerError( "No response from Resource Manager." ) ) )
+    }
+  }
+
+  def importCreate( identifier: Long ): Action[CreateImportRequest] = ProfileFilterAction( jwtVerifier.get ).async( bodyParseJson[CreateImportRequest] ) { implicit request =>
+    val token: String = request.headers.get( "Authorization" ).getOrElse( "" )
+    val rmc = new ResourceManagerClient( config )
+    val rid = request.body.resourceId
+    val extra = Some( Json.toJson( Map(
+      "project" -> JsNumber( identifier ),
+      "resource" -> JsNumber( rid )
+    ) ).as[JsObject] )
+
+    rmc.authorize( AccessRequestFormat, request.body.toAccessRequest( extra ), token ).flatMap { res =>
+      val optResult: Option[Future[Result]] = res.map { ag =>
+        if ( ag.verifyAccessToken( rmJwtVerifier.get ).extraClaims.equals( extra ) ) {
+          val edge = NewEdge( NamespaceAndName( "project:used_by" ), Right( identifier ), Right( rid ), Map() )
+          val mut = Mutation( Seq( CreateEdgeOperation( edge ) ) )
+          gc.postAndWait( mut ).map { ev =>
+            val response = ev.status match {
+              case EventStatus.Completed( res ) => res
+              case EventStatus.Pending          => throw new RuntimeException( s"Expected completed mutation: ${ev.uuid}" )
+            }
+
+            val mutationResponse = response.event.as[MutationResponse]
+            mutationResponse match {
+              case MutationSuccess( _ )     => Created
+              case MutationFailed( reason ) => throw new RuntimeException( s"Project creation failed, caused by: $reason" )
+            }
           }
         }
         else Future( InternalServerError( "Resource Manager response is invalid." ) )
