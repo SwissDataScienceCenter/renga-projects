@@ -18,6 +18,7 @@
 
 import javax.inject.Inject
 
+import ch.datascience.service.utils.AccessLoggingFilter
 import play.api.http.DefaultHttpFilters
 import play.filters.cors.CORSFilter
 import play.filters.headers.SecurityHeadersFilter
